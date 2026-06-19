@@ -176,10 +176,11 @@ export default function Dashboard() {
     const id_rol = localStorage.getItem('id_rol')
     const token = localStorage.getItem('access_token')
 
-    if (!token) {
-      navigate('/login')
-      return
-    }
+    // Permitimos acceso sin token para probar el microservicio de Eventos
+    // if (!token) {
+    //   navigate('/login')
+    //   return
+    // }
 
     setUser({
       nombre: nombre || 'Usuario',
