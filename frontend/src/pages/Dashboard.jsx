@@ -420,6 +420,7 @@ export default function Dashboard() {
               }}
               style={{
                 width: '100%', display: 'flex', alignItems: 'center', gap: '16px', padding: '12px 16px', marginBottom: '8px',
+                boxSizing: 'border-box',
                 background: activeTab === item.id ? '#0F766E' : 'transparent',
                 color: activeTab === item.id ? 'var(--bg-card)' : 'var(--text-muted)',
                 border: 'none', borderRadius: '8px', cursor: 'pointer', textAlign: 'left',
