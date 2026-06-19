@@ -15,3 +15,6 @@ python-multipart>=0.0.6
 
 # Monitoreo
 prometheus-fastapi-instrumentator==7.0.0
+
+# Eventos Auditables
+confluent-kafka==2.3.0

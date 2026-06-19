@@ -37,6 +37,9 @@ app = FastAPI(
 # 1. Aplicar configuraciones de seguridad (CORS)
 configurar_seguridad_app(app)
 
+from app.core.audit_middleware import AuditMiddleware
+app.add_middleware(AuditMiddleware)
+
 # Instrumentar con Prometheus
 Instrumentator().instrument(app).expose(app, include_in_schema=False, should_gzip=True)
 
