@@ -14,21 +14,7 @@ import VerificarCuenta from './pages/VerificarCuenta'
  * Componente de protección de ruta por Rol (Permite Admin '1' y Usuario '2')
  */
 const GuardedRoute = ({ element: Element }) => {
-  const token = localStorage.getItem('access_token')
-  const idRol = localStorage.getItem('id_rol')
-
-  // 1. Si no hay token, directo al login
-  if (!token) {
-    return <Navigate to="/login" replace />
-  }
-
-  // 2. CORRECCIÓN: Permitir la entrada si es Admin (1) O si es Usuario Autorizado (2)
-  if (String(idRol) !== '1' && String(idRol) !== '2' && String(idRol) !== '3') {
-    localStorage.clear() // Solo limpia si es un rol totalmente desconocido
-    return <Navigate to="/login?logout=true" replace />
-  }
-
-  // 3. Si cumple con los roles permitidos, pasa al Dashboard
+  // Para propósitos de este microservicio aislado, permitimos acceso directo
   return <Element />
 }
 
@@ -37,15 +23,15 @@ export default function App() {
   const idRol = localStorage.getItem('id_rol')
 
   // El usuario puede ir al dashboard desde la raíz si tiene token y rol válido
-  const isUserValid = token && (String(idRol) === '1' || String(idRol) === '2' || String(idRol) === '3')
+  const isUserValid = true // Forzamos acceso directo al dashboard
 
   return (
     <>
     <Routes>
-      {/* Ruta raíz: Redirige al Dashboard si está validado, o muestra el Home (Landing Page) si no */}
+      {/* Ruta raíz: Redirige directamente al Dashboard para probar el microservicio aislado */}
       <Route
         path="/"
-        element={isUserValid ? <Navigate to="/dashboard" replace /> : <Home />}
+        element={<Navigate to="/dashboard" replace />}
       />
 
       {/* Rutas Públicas de Autenticación */}
