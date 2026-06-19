@@ -22,16 +22,6 @@ class AuditMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         start_time = time.time()
         
-        # Leer body (si aplica)
-        body = b""
-        if request.method in ["POST", "PUT", "DELETE"]:
-            # FastAPI requiere consumir el stream y recrearlo
-            body = await request.body()
-            
-            async def receive():
-                return {"type": "http.request", "body": body}
-            request._receive = receive
-
         # Procesar petición
         response = await call_next(request)
         process_time = (time.time() - start_time) * 1000
@@ -51,7 +41,7 @@ class AuditMiddleware(BaseHTTPMiddleware):
                 "metodo": request.method,
                 "ruta": request.url.path,
                 "tiempo_ms": round(process_time, 2),
-                "payload": body.decode("utf-8") if body else ""
+                "payload": "Mutacion_de_datos"
             }
 
             # Enviar mensaje a Kafka al tópico 'auditoria'
