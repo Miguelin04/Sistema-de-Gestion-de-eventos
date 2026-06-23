@@ -18,7 +18,7 @@ def _get_kafka_producer():
     try:
         from confluent_kafka import Producer
         conf = {
-            'bootstrap.servers': '18.225.179.237:9092',
+            'bootstrap.servers': '3.21.50.248:9092',
             'client.id': socket.gethostname(),
             # Timeout corto para no bloquear requests si Kafka cae
             'socket.timeout.ms': 3000,
