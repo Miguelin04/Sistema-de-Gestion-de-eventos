@@ -1,39 +1,59 @@
 import time
 import json
+import socket
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
-from confluent_kafka import Producer
-import socket
 
-# Configuración básica de Kafka (IP Pública de AWS para que GCP se conecte)
-conf = {
-    'bootstrap.servers': '18.225.179.237:9092',
-    'client.id': socket.gethostname()
-}
-producer = Producer(conf)
+# ──────────────────────────────────────────────────────────────────────────────
+# Inicialización LAZY del Producer de Kafka.
+# El Producer se crea una sola vez, la primera vez que se necesita.
+# Esto evita que un broker Kafka inaccesible bloquee el arranque del backend.
+# ──────────────────────────────────────────────────────────────────────────────
+_kafka_producer = None
+
+def _get_kafka_producer():
+    global _kafka_producer
+    if _kafka_producer is not None:
+        return _kafka_producer
+    try:
+        from confluent_kafka import Producer
+        conf = {
+            'bootstrap.servers': '18.225.179.237:9092',
+            'client.id': socket.gethostname(),
+            # Timeout corto para no bloquear requests si Kafka cae
+            'socket.timeout.ms': 3000,
+            'message.timeout.ms': 3000,
+        }
+        _kafka_producer = Producer(conf)
+        print("[Kafka] Producer inicializado correctamente.")
+    except Exception as e:
+        print(f"[Kafka WARNING] No se pudo inicializar el Producer: {e}. La auditoría Kafka estará deshabilitada.")
+        _kafka_producer = None
+    return _kafka_producer
+
 
 def delivery_report(err, msg):
     if err is not None:
-        print(f"Message delivery failed: {err}")
+        print(f"[Kafka] Entrega fallida: {err}")
     else:
-        print(f"Message delivered to {msg.topic()} [{msg.partition()}]")
+        print(f"[Kafka] Mensaje entregado a {msg.topic()} [{msg.partition()}]")
+
 
 class AuditMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         start_time = time.time()
-        
-        # Procesar petición
+
+        # Procesar la petición normalmente (NUNCA bloquear por Kafka)
         response = await call_next(request)
         process_time = (time.time() - start_time) * 1000
 
-        # Si fue una mutación de datos (y la respuesta fue exitosa)
+        # Solo auditar mutaciones de datos exitosas
         if request.method in ["POST", "PUT", "DELETE"] and response.status_code < 400:
-            
-            # Obtener el Actor (Usuario) desde el token JWT (si existe)
+
             actor = "Anonimo"
             auth_header = request.headers.get("Authorization")
             if auth_header and auth_header.startswith("Bearer "):
-                actor = "Usuario_JWT" 
+                actor = "Usuario_JWT"
 
             event_data = {
                 "actor": actor,
@@ -44,15 +64,18 @@ class AuditMiddleware(BaseHTTPMiddleware):
                 "payload": "Mutacion_de_datos"
             }
 
-            # Enviar mensaje a Kafka al tópico 'auditoria'
+            # Intento de envío a Kafka — si falla, el request ya fue respondido
             try:
-                producer.produce(
-                    'auditoria', 
-                    value=json.dumps(event_data).encode('utf-8'),
-                    callback=delivery_report
-                )
-                producer.poll(0)
+                producer = _get_kafka_producer()
+                if producer:
+                    producer.produce(
+                        'auditoria',
+                        value=json.dumps(event_data).encode('utf-8'),
+                        callback=delivery_report
+                    )
+                    producer.poll(0)
             except Exception as e:
-                print(f"Error enviando a Kafka: {e}")
+                print(f"[Kafka ERROR] No se pudo enviar evento de auditoría: {e}")
 
         return response
+
