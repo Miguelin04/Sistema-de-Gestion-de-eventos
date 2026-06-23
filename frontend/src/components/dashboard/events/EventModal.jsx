@@ -138,6 +138,26 @@ export default function EventModal({ open, onClose, onSave, editando }) {
 
     if (!formData.fecha_inicio || !formData.hora_inicio) {
       nuevosErrores.fecha_inicio = "Selecciona fecha y hora de inicio.";
+    } else {
+      // Validar que la fecha de inicio no sea anterior al día de hoy
+      let validarPasado = true;
+      if (editando) {
+        const origInicioLocal = toDatetimeLocal(editando.fecha_hora_inicio);
+        const origFecha = origInicioLocal.split('T')[0];
+        const origHora = origInicioLocal.split('T')[1];
+        if (formData.fecha_inicio === origFecha && formData.hora_inicio === origHora) {
+          validarPasado = false;
+        }
+      }
+
+      if (validarPasado) {
+        const hoy = new Date();
+        hoy.setHours(0, 0, 0, 0);
+        const fechaInicioSolo = new Date(`${formData.fecha_inicio}T00:00:00`);
+        if (fechaInicioSolo < hoy) {
+          nuevosErrores.fecha_inicio = "La fecha de inicio no puede ser anterior al día de hoy.";
+        }
+      }
     }
 
     if (!formData.fecha_fin || !formData.hora_fin) {

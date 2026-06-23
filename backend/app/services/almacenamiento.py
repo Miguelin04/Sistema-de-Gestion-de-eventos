@@ -19,14 +19,36 @@ def subir_imagen_minio(file: UploadFile) -> str:
     Retorna la URL pública generada para ser guardada en PostgreSQL.
     """
     try:
-        # 1. Reiniciar el cursor de lectura (Vital para la integración con la HU_05)
+        # 1. Asegurar que el bucket exista y sea público
+        try:
+            if not minio_client.bucket_exists(settings.MINIO_BUCKET_NAME):
+                import json
+                minio_client.make_bucket(settings.MINIO_BUCKET_NAME)
+                # Política pública para permitir al frontend cargar la imagen
+                policy = {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Principal": {"AWS": ["*"]},
+                            "Action": ["s3:GetObject"],
+                            "Resource": [f"arn:aws:s3:::{settings.MINIO_BUCKET_NAME}/*"]
+                        }
+                    ]
+                }
+                minio_client.set_bucket_policy(settings.MINIO_BUCKET_NAME, json.dumps(policy))
+        except Exception as bucket_err:
+            print(f"[MinIO WARNING] No se pudo verificar o crear el bucket '{settings.MINIO_BUCKET_NAME}': {bucket_err}")
+            # Continuamos por si el bucket ya existía pero hubo restricción de permisos al verificar
+
+        # 2. Reiniciar el cursor de lectura (Vital para la integración con la HU_05)
         file.file.seek(0)
         
-        # 2. Generamos un nombre único (UUID + extensión original)
+        # 3. Generamos un nombre único (UUID + extensión original)
         extension = os.path.splitext(file.filename)[1]
         nombre_unico = f"{uuid.uuid4()}{extension}"
         
-        # 3. Subimos el objeto a MinIO
+        # 4. Subimos el objeto a MinIO
         minio_client.put_object(
             bucket_name=settings.MINIO_BUCKET_NAME,  # Ej: "unl-eventos-media"
             object_name=nombre_unico,
@@ -35,7 +57,7 @@ def subir_imagen_minio(file: UploadFile) -> str:
             content_type=file.content_type
         )
         
-        # 4. Construimos la URL pública (Puerto 9005 expuesto para el Frontend)
+        # 5. Construimos la URL pública (Puerto 9005 expuesto para el Frontend)
         url_publica = f"http://localhost:9005/{settings.MINIO_BUCKET_NAME}/{nombre_unico}"
         
         return url_publica
@@ -44,11 +66,11 @@ def subir_imagen_minio(file: UploadFile) -> str:
         print(f"[MinIO ERROR] Fallo en el almacenamiento de objetos: {e}")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="El servicio de almacenamiento de imagenes no está disponible actualmente."
+            detail=f"El servicio de almacenamiento de imagenes no está disponible actualmente: {str(e)}"
         )
     except Exception as e:
         print(f"[SISTEMA ERROR] Fallo interno al procesar el archivo: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Ocurrió un error inesperado al subir la imagen."
+            detail=f"Ocurrió un error inesperado al subir la imagen: {str(e)}"
         )

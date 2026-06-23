@@ -11,6 +11,7 @@ from typing import List
 from app.database.session import get_db
 from app.models.ubicacion import Ubicacion
 from app.schemas.ubicacion import UbicacionCreate, UbicacionUpdate, UbicacionResponse
+from app.services.auditoria import registrar_auditoria
 
 router = APIRouter(
     prefix="/eventos/ubicaciones", 
@@ -87,6 +88,15 @@ def crear_ubicacion(
     db.add(nueva_ubicacion)
     db.commit()
     db.refresh(nueva_ubicacion)
+
+    registrar_auditoria(
+        db=db,
+        id_usuario=int(x_user_id),
+        accion="CREAR",
+        tabla_afectada="ubicacion",
+        id_registro_afectado=nueva_ubicacion.id_ubicacion,
+        detalle=f"Creo la ubicacion '{nueva_ubicacion.nombre_lugar}' con ID {nueva_ubicacion.id_ubicacion}"
+    )
     
     return nueva_ubicacion
 
@@ -112,6 +122,16 @@ def actualizar_ubicacion(
     
     db.commit()
     db.refresh(ubicacion)
+
+    registrar_auditoria(
+        db=db,
+        id_usuario=rol_validado,
+        accion="MODIFICAR",
+        tabla_afectada="ubicacion",
+        id_registro_afectado=id_ubicacion,
+        detalle=f"Modifico la ubicacion ID {id_ubicacion}"
+    )
+
     return ubicacion
 
 
@@ -131,5 +151,14 @@ def eliminar_ubicacion(
     
     ubicacion.activo = False
     db.commit()
+
+    registrar_auditoria(
+        db=db,
+        id_usuario=rol_validado,
+        accion="DESACTIVAR",
+        tabla_afectada="ubicacion",
+        id_registro_afectado=id_ubicacion,
+        detalle=f"Desactivo la ubicacion '{ubicacion.nombre_lugar}' con ID {id_ubicacion}"
+    )
     
     return {"mensaje": f"Ubicación '{ubicacion.nombre_lugar}' desactivada correctamente."}

@@ -16,6 +16,7 @@ from app.models.evento import ProgresoEvento
 from app.schemas.imagen import ReaccionRequest, ReaccionesResumenResponse
 from app.models.imagen import ImagenEvento
 from app.services.almacenamiento import subir_imagen_minio
+from app.services.auditoria import registrar_auditoria
 from app.crud import crud_evento
 from app.crud import crud_imagen
 
@@ -109,6 +110,15 @@ def registrar_evento(
     # 3. Tareas en segundo plano: Disparamos la notificación MQTT/Push 
     # mientras FastAPI ya le está respondiendo '201 Created' al administrador.
     background_tasks.add_task(enviar_alerta_nuevo_evento, nuevo_evento)
+
+    registrar_auditoria(
+        db=db,
+        id_usuario=id_usuario,
+        accion="CREAR",
+        tabla_afectada="evento",
+        id_registro_afectado=nuevo_evento.id_evento,
+        detalle=f"Creó el evento '{nuevo_evento.nombre}' con ID {nuevo_evento.id_evento}"
+    )
     
     return nuevo_evento
 
@@ -128,7 +138,18 @@ def actualizar_datos_evento(
     if not evento_existente:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No se puede actualizar. Evento no encontrado.")
     
-    return crud_evento.actualizar_evento(db, db_evento=evento_existente, evento_in=evento_in)
+    evento_actualizado = crud_evento.actualizar_evento(db, db_evento=evento_existente, evento_in=evento_in)
+
+    registrar_auditoria(
+        db=db,
+        id_usuario=id_usuario,
+        accion="MODIFICAR",
+        tabla_afectada="evento",
+        id_registro_afectado=id_evento,
+        detalle=f"Modificó el evento ID {id_evento}"
+    )
+
+    return evento_actualizado
 
 @router.delete("/{id_evento}", response_model=EventoResponse, status_code=status.HTTP_200_OK)
 def cancelar_evento(
@@ -149,8 +170,19 @@ def cancelar_evento(
     # Previene la sobreescritura si el evento ya fue dado de baja previamente
     if evento_existente.estado == ProgresoEvento.CANCELADO:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="El evento ya se encuentra en estado cancelado.")
-        
-    return crud_evento.eliminar_evento(db, db_evento=evento_existente)
+
+    evento_eliminado = crud_evento.eliminar_evento(db, db_evento=evento_existente)
+
+    registrar_auditoria(
+        db=db,
+        id_usuario=id_usuario,
+        accion="CANCELAR",
+        tabla_afectada="evento",
+        id_registro_afectado=id_evento,
+        detalle=f"Cancelo el evento '{evento_existente.nombre}' con ID {id_evento}"
+    )
+
+    return evento_eliminado
 
 # ==========================================
 # VALIDACIONES DE LA ADUANA (HU_05)
@@ -203,6 +235,8 @@ def subir_imagen_a_evento(
     # 2. El Transportista: Mandamos el archivo al Bucket
     try:
         url_publica = subir_imagen_minio(imagen_validada)
+    except HTTPException as he:
+        raise he
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -215,6 +249,15 @@ def subir_imagen_a_evento(
         id_evento=id_evento, 
         id_usuario=id_usuario, # Pasamos el ID de quien sube la foto
         url_minio=url_publica
+    )
+
+    registrar_auditoria(
+        db=db,
+        id_usuario=id_usuario,
+        accion="SUBIR_IMAGEN",
+        tabla_afectada="imagen_evento",
+        id_registro_afectado=nueva_imagen.id_imagen,
+        detalle=f"Subio imagen al evento ID {id_evento}"
     )
     
     return {
@@ -248,7 +291,16 @@ def reaccionar_a_imagen(
         id_usuario=id_usuario, 
         tipo_nuevo=reaccion_in.tipo
     )
-    
+
+    registrar_auditoria(
+        db=db,
+        id_usuario=id_usuario,
+        accion=resultado["accion"].upper(),
+        tabla_afectada="reaccion",
+        id_registro_afectado=id_imagen,
+        detalle=f"{resultado['accion']} reaccion {reaccion_in.tipo.value} en imagen ID {id_imagen}"
+    )
+
     return {"mensaje": "Interacción procesada", "detalle": resultado}
 
 # ==========================================

@@ -11,9 +11,12 @@ class EventoBase(BaseModel):
     fecha_hora_inicio: datetime = Field(..., description="Fecha y hora de inicio")
     fecha_hora_final: datetime = Field(..., description="Fecha y hora de finalización prevista")
 
-    # Validación estricta: El evento no puede terminar antes de empezar
+    # Validación estricta: El evento no puede terminar antes de empezar y la fecha de inicio no puede ser anterior a hoy
     @model_validator(mode='after')
     def validar_fechas(self) -> 'EventoBase':
+        ahora = datetime.now(self.fecha_hora_inicio.tzinfo) if self.fecha_hora_inicio.tzinfo else datetime.now()
+        if self.fecha_hora_inicio.date() < ahora.date():
+            raise ValueError("La fecha de inicio no puede ser anterior al día de hoy.")
         if self.fecha_hora_final <= self.fecha_hora_inicio:
             raise ValueError("La fecha de finalización debe ser posterior a la fecha de inicio.")
         return self
@@ -35,6 +38,10 @@ class EventoUpdate(BaseModel):
     # Validación opcional para el update
     @model_validator(mode='after')
     def validar_fechas_update(self) -> 'EventoUpdate':
+        if self.fecha_hora_inicio:
+            ahora = datetime.now(self.fecha_hora_inicio.tzinfo) if self.fecha_hora_inicio.tzinfo else datetime.now()
+            if self.fecha_hora_inicio.date() < ahora.date():
+                raise ValueError("La fecha de inicio no puede ser anterior al día de hoy.")
         if self.fecha_hora_inicio and self.fecha_hora_final:
             if self.fecha_hora_final <= self.fecha_hora_inicio:
                 raise ValueError("La fecha de finalización debe ser posterior a la fecha de inicio.")
