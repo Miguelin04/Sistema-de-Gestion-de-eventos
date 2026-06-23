@@ -5,13 +5,20 @@ from minio.error import S3Error
 from fastapi import UploadFile, HTTPException, status
 from app.core.config import settings
 
-# Inicializamos el cliente de MinIO usando las variables del docker-compose
-minio_client = Minio(
-    settings.MINIO_SERVER,       # Ej: "minio:9000" (nombre del servicio en Docker)
-    access_key=settings.MINIO_ROOT_USER,
-    secret_key=settings.MINIO_ROOT_PASSWORD,
-    secure=False                 # Estamos en red interna HTTP, no HTTPS
-)
+# El cliente de MinIO se inicializa de forma lazy (al primer uso)
+# para evitar que un MinIO inaccesible bloquee el arranque del backend.
+_minio_client = None
+
+def _get_minio_client():
+    global _minio_client
+    if _minio_client is None:
+        _minio_client = Minio(
+            settings.MINIO_SERVER,
+            access_key=settings.MINIO_ROOT_USER,
+            secret_key=settings.MINIO_ROOT_PASSWORD,
+            secure=False
+        )
+    return _minio_client
 
 def subir_imagen_minio(file: UploadFile) -> str:
     """
@@ -21,6 +28,7 @@ def subir_imagen_minio(file: UploadFile) -> str:
     try:
         # 1. Asegurar que el bucket exista y sea público
         try:
+            minio_client = _get_minio_client()
             if not minio_client.bucket_exists(settings.MINIO_BUCKET_NAME):
                 import json
                 minio_client.make_bucket(settings.MINIO_BUCKET_NAME)
@@ -49,7 +57,7 @@ def subir_imagen_minio(file: UploadFile) -> str:
         nombre_unico = f"{uuid.uuid4()}{extension}"
         
         # 4. Subimos el objeto a MinIO
-        minio_client.put_object(
+        _get_minio_client().put_object(
             bucket_name=settings.MINIO_BUCKET_NAME,  # Ej: "unl-eventos-media"
             object_name=nombre_unico,
             data=file.file,
