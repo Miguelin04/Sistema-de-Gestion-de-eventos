@@ -7,6 +7,29 @@
  * @history
  * 10/06/2026 v0.1 - Isabel Morocho (Rol: Frontend)
  */
+import { useState } from "react";
+
+// Componente interno que maneja el estado de carga de imagen individualmente
+function ImagenEvento({ url, nombre }) {
+  const [error, setError] = useState(false);
+
+  if (!url || error) {
+    return (
+      <span style={{ color: "var(--text-muted)", opacity: 0.4, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <IconCamera />
+      </span>
+    );
+  }
+
+  return (
+    <img
+      src={url}
+      alt={nombre}
+      style={{ width: "44px", height: "44px", borderRadius: "6px", objectFit: "cover", border: "1px solid #DBE3E0", display: "block" }}
+      onError={() => setError(true)}
+    />
+  );
+}
 
 const obtenerEstiloEstado = (estado) => {
   switch (estado) {
@@ -49,20 +72,7 @@ export default function EventTable({ eventos, onEdit, onDelete }) {
 
               {/* IMAGEN */}
               <td style={{ ...cellStyle, verticalAlign: "middle" }}>
-                {evento.imagen_url ? (
-                  <img
-                    src={evento.imagen_url}
-                    alt={evento.nombre}
-                    style={{ width: "44px", height: "44px", borderRadius: "6px", objectFit: "cover", border: "1px solid #DBE3E0", display: "block" }}
-                    onError={(e) => {
-                      e.currentTarget.style.display = "none";
-                      e.currentTarget.nextElementSibling.style.display = "flex";
-                    }}
-                  />
-                ) : null}
-                <span style={{ color: "var(--text-muted)", opacity: 0.4, display: evento.imagen_url ? "none" : "flex", alignItems: "center", justifyContent: "center" }}>
-                  <IconCamera />
-                </span>
+                <ImagenEvento url={evento.imagen_url} nombre={evento.nombre} />
               </td>
 
               {/* NOMBRE Y DESCRIPCION */}
