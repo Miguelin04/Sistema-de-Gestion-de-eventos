@@ -50,12 +50,19 @@ export default function EventTable({ eventos, onEdit, onDelete }) {
               {/* IMAGEN */}
               <td style={{ ...cellStyle, verticalAlign: "middle" }}>
                 {evento.imagen_url ? (
-                  <img src={evento.imagen_url} alt={evento.nombre} style={{ width: "44px", height: "44px", borderRadius: "6px", objectFit: "cover", border: "1px solid #DBE3E0", display: "block" }} />
-                ) : (
-                  <span style={{ color: "var(--text-muted)", opacity: 0.4, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <IconCamera />
-                  </span>
-                )}
+                  <img
+                    src={evento.imagen_url}
+                    alt={evento.nombre}
+                    style={{ width: "44px", height: "44px", borderRadius: "6px", objectFit: "cover", border: "1px solid #DBE3E0", display: "block" }}
+                    onError={(e) => {
+                      e.currentTarget.style.display = "none";
+                      e.currentTarget.nextElementSibling.style.display = "flex";
+                    }}
+                  />
+                ) : null}
+                <span style={{ color: "var(--text-muted)", opacity: 0.4, display: evento.imagen_url ? "none" : "flex", alignItems: "center", justifyContent: "center" }}>
+                  <IconCamera />
+                </span>
               </td>
 
               {/* NOMBRE Y DESCRIPCION */}

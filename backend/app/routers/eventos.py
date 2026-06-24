@@ -57,14 +57,36 @@ def verificar_rol_administrador(x_user_role: str = Header(..., alias="x-user-rol
 # Operaciones de solo lectura (GET). No requieren validación estricta de roles.
 # ==============================================================================
 
-@router.get("/activos", response_model=List[EventoResponse], status_code=status.HTTP_200_OK)
+@router.get("/activos", status_code=status.HTTP_200_OK)
 def listar_eventos_activos(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     """
     Endpoint de consumo masivo para el feed principal de la aplicación.
     Retorna la lista de eventos que están actualmente en curso o programados.
-    Cualquier usuario autenticado en la red puede consultar esta información.
+    Incluye la URL de la primera imagen de cada evento para el dashboard.
     """
-    return crud_evento.obtener_eventos_activos(db, skip=skip, limit=limit)
+    eventos = crud_evento.obtener_eventos_activos(db, skip=skip, limit=limit)
+    return [
+        {
+            "id_evento": e.id_evento,
+            "nombre": e.nombre,
+            "descripcion": e.descripcion,
+            "fecha_hora_inicio": e.fecha_hora_inicio.isoformat(),
+            "fecha_hora_final": e.fecha_hora_final.isoformat(),
+            "estado": e.estado,
+            "id_usuario": e.id_usuario,
+            "id_ubicacion": e.id_ubicacion,
+            "ubicacion": {
+                "id_ubicacion": e.ubicacion.id_ubicacion,
+                "nombre_lugar": e.ubicacion.nombre_lugar,
+                "direccion_alfa_numerica": e.ubicacion.direccion_alfa_numerica,
+                "latitud": e.ubicacion.latitud,
+                "longitud": e.ubicacion.longitud,
+            } if e.ubicacion else None,
+            "imagen_url": e.imagenes[0].url_minio if e.imagenes else None,
+        }
+        for e in eventos
+    ]
+
 
 # ==========================================
 # ENDPOINT PARA AUDITORÍA DE EVENTOS (Admin)
@@ -99,16 +121,33 @@ def obtener_auditoria_eventos(
         for r in registros
     ]
 
-@router.get("/{id_evento}", response_model=EventoResponse, status_code=status.HTTP_200_OK)
+@router.get("/{id_evento}", status_code=status.HTTP_200_OK)
 def obtener_detalle_evento(id_evento: int, db: Session = Depends(get_db)):
     """
-    Obtiene la vista detallada de un evento específico mediante su ID.
-    Utilizado por el frontend cuando un usuario hace clic en una tarjeta de evento.
+    Obtiene la vista detallada de un evento específico mediante su ID,
+    incluyendo la URL de la primera imagen subida.
     """
     evento = crud_evento.obtener_evento_por_id(db, id_evento)
     if not evento:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="El evento solicitado no existe o fue eliminado.")
-    return evento
+    return {
+        "id_evento": evento.id_evento,
+        "nombre": evento.nombre,
+        "descripcion": evento.descripcion,
+        "fecha_hora_inicio": evento.fecha_hora_inicio.isoformat(),
+        "fecha_hora_final": evento.fecha_hora_final.isoformat(),
+        "estado": evento.estado,
+        "id_usuario": evento.id_usuario,
+        "id_ubicacion": evento.id_ubicacion,
+        "ubicacion": {
+            "id_ubicacion": evento.ubicacion.id_ubicacion,
+            "nombre_lugar": evento.ubicacion.nombre_lugar,
+            "direccion_alfa_numerica": evento.ubicacion.direccion_alfa_numerica,
+            "latitud": evento.ubicacion.latitud,
+            "longitud": evento.ubicacion.longitud,
+        } if evento.ubicacion else None,
+        "imagen_url": evento.imagenes[0].url_minio if evento.imagenes else None,
+    }
 
 
 # ==============================================================================
