@@ -78,10 +78,14 @@ export default function AuditLogTable() {
     setLoading(true);
     try {
       const data = await getAuditoria();
-      setLogs(data);
+      // Asegurarse de que data sea siempre un array
+      setLogs(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Error al cargar la auditoría:", error);
-      toast.error("Error al cargar los registros de auditoría");
+      const msg = error?.response?.data?.detail || "Error al cargar los registros de auditoría";
+      toast.error(msg);
+      // Mantener la tabla visible aunque vacía
+      setLogs([]);
     } finally {
       setLoading(false);
     }
@@ -218,9 +222,9 @@ export default function AuditLogTable() {
                 </tr>
               </thead>
               <tbody>
-                {logsFiltrados.map((log) => (
+                {logsFiltrados.map((log, index) => (
                   <tr
-                    key={log.id_auditoria}
+                    key={log.id_auditoria ?? index}
                     style={{ transition: "background 0.2s" }}
                     onMouseOver={(e) => { e.currentTarget.style.background = "var(--bg-app)"; }}
                     onMouseOut={(e) => { e.currentTarget.style.background = "transparent"; }}
@@ -228,21 +232,36 @@ export default function AuditLogTable() {
                     {/* FECHA Y HORA */}
                     <td style={cellStyle}>
                       <div style={{ fontWeight: "700" }}>
-                        {new Date(log.fecha).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                        {log.fecha ? new Date(log.fecha).toLocaleDateString("es-EC", { month: 'short', day: 'numeric', year: 'numeric' }) : "—"}
                       </div>
                       <div style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "2px" }}>
-                        {new Date(log.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                        {log.fecha ? new Date(log.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : ""}
                       </div>
                     </td>
 
-                    {/* USUARIO */}
-                    <td style={{ ...cellStyle, fontWeight: "800", color: "#0F766E" }}>
-                      ID #{log.id_usuario}
+                    {/* ACTOR / ID DE USUARIO (referencia externa al ms-usuarios) */}
+                    <td style={cellStyle}>
+                      <span style={{
+                        background: "#f0fdfa",
+                        color: "#0F766E",
+                        border: "1px solid #99f6e4",
+                        padding: "3px 8px",
+                        borderRadius: "4px",
+                        fontSize: "11px",
+                        fontWeight: "800",
+                        display: "inline-block",
+                        letterSpacing: "0.3px"
+                      }}>
+                        ID #{log.id_usuario ?? "—"}
+                      </span>
+                      <div style={{ fontSize: "10px", color: "var(--text-muted)", marginTop: "3px" }}>
+                        ms-usuarios
+                      </div>
                     </td>
 
                     {/* CATEGORÍA / TABLA AFECTADA */}
                     <td style={{ ...cellStyle, textTransform: "uppercase", fontSize: "11px", fontWeight: "700", color: "var(--text-muted)" }}>
-                      {log.tabla_afectada}
+                      {log.tabla_afectada ?? "—"}
                     </td>
 
                     {/* ACCIÓN BADGE */}
@@ -256,13 +275,13 @@ export default function AuditLogTable() {
                         display: "inline-block",
                         letterSpacing: "0.5px"
                       }}>
-                        {log.accion?.replace('_', ' ')}
+                        {log.accion?.replace(/_/g, ' ') ?? "—"}
                       </span>
                     </td>
 
                     {/* DETALLE */}
                     <td style={{ ...cellStyle, color: "var(--text-muted)", lineHeight: "1.4" }}>
-                      {log.detalle || `Operación de tipo ${log.accion} sobre registro ID ${log.id_registro_afectado}`}
+                      {log.detalle || `Operación ${log.accion} → Registro #${log.id_registro_afectado ?? "?"}`}
                     </td>
 
                     {/* RESULTADO (ÉXITO) */}

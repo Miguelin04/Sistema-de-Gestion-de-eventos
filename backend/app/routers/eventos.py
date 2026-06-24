@@ -66,6 +66,39 @@ def listar_eventos_activos(skip: int = 0, limit: int = 100, db: Session = Depend
     """
     return crud_evento.obtener_eventos_activos(db, skip=skip, limit=limit)
 
+# ==========================================
+# ENDPOINT PARA AUDITORÍA DE EVENTOS (Admin)
+# IMPORTANTE: Debe ir ANTES de /{id_evento} para evitar que FastAPI
+# interprete la cadena "auditoria" como un parámetro entero.
+# ==========================================
+@router.get("/auditoria", status_code=status.HTTP_200_OK)
+def obtener_auditoria_eventos(
+    db: Session = Depends(get_db),
+    id_usuario: int = Depends(obtener_id_usuario_gateway),
+    rol_validado: int = Depends(verificar_rol_administrador)
+):
+    """
+    Retorna los registros de auditoría de la base de datos de eventos.
+    Solo accesible por Administradores (rol 1).
+    NOTA: El campo id_usuario es un ID de referencia al microservicio de usuarios;
+    no se resuelve el nombre aquí para mantener el desacoplamiento entre servicios.
+    """
+    from app.models.auditoria import Auditoria
+    registros = db.query(Auditoria).order_by(Auditoria.id_auditoria.desc()).all()
+
+    return [
+        {
+            "id_auditoria": r.id_auditoria,
+            "id_usuario": r.id_usuario,
+            "accion": r.accion,
+            "tabla_afectada": r.tabla_afectada,
+            "id_registro_afectado": r.id_registro_afectado,
+            "detalle": r.detalle,
+            "fecha": r.fecha.isoformat()
+        }
+        for r in registros
+    ]
+
 @router.get("/{id_evento}", response_model=EventoResponse, status_code=status.HTTP_200_OK)
 def obtener_detalle_evento(id_evento: int, db: Session = Depends(get_db)):
     """
@@ -323,31 +356,5 @@ def obtener_interacciones_imagen(
     return crud_imagen.obtener_resumen_reacciones(db, id_imagen)
 
 
-# ==========================================
-# ENDPOINT PARA AUDITORÍA DE EVENTOS (Admin)
-# ==========================================
-@router.get("/auditoria", status_code=status.HTTP_200_OK)
-def obtener_auditoria_eventos(
-    db: Session = Depends(get_db),
-    id_usuario: int = Depends(obtener_id_usuario_gateway),
-    rol_validado: int = Depends(verificar_rol_administrador)
-):
-    """
-    Retorna los registros de auditoría de la base de datos de eventos.
-    Solo accesible por Administradores.
-    """
-    from app.models.auditoria import Auditoria
-    registros = db.query(Auditoria).order_by(Auditoria.id_auditoria.desc()).all()
-    
-    return [
-        {
-            "id_auditoria": r.id_auditoria,
-            "id_usuario": r.id_usuario,
-            "accion": r.accion,
-            "tabla_afectada": r.tabla_afectada,
-            "id_registro_afectado": r.id_registro_afectado,
-            "detalle": r.detalle,
-            "fecha": r.fecha.isoformat()
-        }
-        for r in registros
-    ]
+# El endpoint /auditoria fue movido antes de /{id_evento} (ver arriba)
+# para evitar el conflicto de rutas en FastAPI.
