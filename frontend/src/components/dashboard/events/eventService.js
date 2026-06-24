@@ -54,3 +54,11 @@ export const uploadImage = async (id_evento, file) => {
   });
   return response.data;
 };
+
+export const getAuditoria = async () => {
+  const response = await api.get("/eventos/auditoria", {
+    headers: { ...getUserHeaders() },
+  });
+  return response.data;
+};
+

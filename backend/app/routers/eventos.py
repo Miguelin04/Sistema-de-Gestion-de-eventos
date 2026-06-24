@@ -321,3 +321,33 @@ def obtener_interacciones_imagen(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="La imagen no existe.")
         
     return crud_imagen.obtener_resumen_reacciones(db, id_imagen)
+
+
+# ==========================================
+# ENDPOINT PARA AUDITORÍA DE EVENTOS (Admin)
+# ==========================================
+@router.get("/auditoria", status_code=status.HTTP_200_OK)
+def obtener_auditoria_eventos(
+    db: Session = Depends(get_db),
+    id_usuario: int = Depends(obtener_id_usuario_gateway),
+    rol_validado: int = Depends(verificar_rol_administrador)
+):
+    """
+    Retorna los registros de auditoría de la base de datos de eventos.
+    Solo accesible por Administradores.
+    """
+    from app.models.auditoria import Auditoria
+    registros = db.query(Auditoria).order_by(Auditoria.id_auditoria.desc()).all()
+    
+    return [
+        {
+            "id_auditoria": r.id_auditoria,
+            "id_usuario": r.id_usuario,
+            "accion": r.accion,
+            "tabla_afectada": r.tabla_afectada,
+            "id_registro_afectado": r.id_registro_afectado,
+            "detalle": r.detalle,
+            "fecha": r.fecha.isoformat()
+        }
+        for r in registros
+    ]

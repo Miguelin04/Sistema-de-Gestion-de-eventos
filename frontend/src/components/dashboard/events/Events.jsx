@@ -15,6 +15,7 @@ import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
 import EventTable from "./EventTable";
 import EventModal from "./EventModal";
+import AuditLogTable from "./AuditLogTable";
 import { getEventos, createEvento, updateEvento, deleteEvento, uploadImage } from "./eventService";
 
 // Iconos SVG integrados para no depender de librerías externas
@@ -211,6 +212,9 @@ export default function Events() {
         {/* COMPONENTE TABLA */}
         <EventTable eventos={eventosPorTab} onEdit={openEdit} onDelete={eliminarEvento} />
       </div>
+
+      {/* TABLA DE AUDITORÍA NATIVA (Debajo de la gestión de eventos) */}
+      <AuditLogTable />
 
       <EventModal open={openModal} onClose={() => { setOpenModal(false); setEditando(null); }} onSave={guardarEvento} editando={editando} />
     </div>
